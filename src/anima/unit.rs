@@ -46,11 +46,18 @@ impl Testing for Unit {
             "Errors has been founded",
         )
     }
+
+    fn eq<T: Eq>(&mut self, description: &str, data: Vec<T>, to: T) -> &mut Self {
+        for test in &data {
+            check(description, test.eq(&to));
+        }
+        self
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use std::process::ExitCode;
+    use std::{env::consts::OS, process::ExitCode};
 
     use crate::anima::{soul::Testing, unit::Unit};
     #[test]
@@ -58,6 +65,7 @@ mod test {
         Unit::new()
             .ok("All must match true", vec![true, true, true])
             .ko("All must match false", vec![false, false, false])
+            .eq("Linux must be running", vec![OS, OS, OS], "linux")
             .run()
     }
 }

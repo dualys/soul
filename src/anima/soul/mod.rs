@@ -165,6 +165,15 @@ pub trait Testing {
     ///
     fn ko(&mut self, description: &str, data: Vec<bool>) -> &mut Self;
 
+    ///
+    /// Check if data equals to the expected value
+    ///
+    /// - `description` The test description
+    /// - `data` The data to check
+    /// - `expected` The expected value
+    ///
+    fn eq<T: Eq>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self;
+
     /// Display the results
     fn run(&mut self) -> ExitCode;
 }
