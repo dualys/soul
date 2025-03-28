@@ -1,6 +1,5 @@
-use std::{cell::Cell, process::ExitCode};
-
 use crate::anima::soul::{Testing, check};
+use std::{cell::Cell, ops::Add, process::ExitCode};
 
 use super::soul::{results_output, title_output};
 
@@ -10,6 +9,13 @@ pub struct Unit {
 }
 
 impl Testing for Unit {
+    fn new() -> Self {
+        Self {
+            asserts: Cell::new(0),
+            failures: Cell::new(0),
+        }
+    }
+
     fn ok(&mut self, description: &str, data: Vec<bool>) -> &mut Self {
         for t in &data {
             if check(description, t.clone().eq(&true)).eq(&true) {
@@ -32,21 +38,6 @@ impl Testing for Unit {
         self
     }
 
-    fn new() -> Self {
-        Self {
-            asserts: Cell::new(0),
-            failures: Cell::new(0),
-        }
-    }
-
-    fn run(&mut self) -> ExitCode {
-        results_output(
-            self.failures.get().eq(&0),
-            "No errors has been fouded",
-            "Errors has been founded",
-        )
-    }
-
     fn eq<T: PartialEq>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
         for test in &data {
             check(description, test.eq(&expected));
@@ -64,6 +55,77 @@ impl Testing for Unit {
     fn group(&mut self, description: &str, it: fn(&mut Self) -> &mut Self) -> &mut Self {
         title_output(description);
         it(self)
+    }
+
+    fn is<T: PartialEq>(&mut self, description: &str, value: T, expected: T) -> &mut Self {
+        self.eq(description, vec![value], expected)
+    }
+
+    fn not<T: PartialEq>(&mut self, description: &str, value: T, expected: T) -> &mut Self {
+        self.ne(description, vec![value], expected)
+    }
+
+    fn len<T: PartialEq>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
+        self.eq(description, data, expected)
+    }
+
+    fn gt<T: PartialOrd>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
+        for test in &data {
+            check(description, test.gt(&expected));
+        }
+        self
+    }
+
+    fn lt<T: PartialOrd>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
+        for test in &data {
+            check(description, test.lt(&expected));
+        }
+        self
+    }
+
+    fn ge<T: PartialOrd>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
+        for test in &data {
+            check(description, test.ge(&expected));
+        }
+        self
+    }
+
+    fn empty(&mut self, description: &str, data: String) -> &mut Self {
+        check(description, data.is_empty());
+        self
+    }
+
+    fn between<T: PartialOrd>(
+        &mut self,
+        description: &str,
+        min: T,
+        max: T,
+        current: T,
+    ) -> &mut Self {
+        check(description, current > min && current < max);
+        self
+    }
+
+    fn le<T: PartialOrd>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
+        for test in &data {
+            check(description, test.le(&expected));
+        }
+        self
+    }
+
+    fn run(&mut self) -> ExitCode {
+        results_output(
+            self.failures.get().eq(&0),
+            "No errors has been fouded",
+            "Errors has been founded",
+        )
+    }
+
+    fn full(&mut self, description: &str, min: usize, max: usize, current: usize) -> &mut Self {
+        if max.ne(&0) {
+            check(description, min.add(current).div_euclid(max).eq(&1));
+        }
+        self
     }
 }
 
@@ -164,6 +226,7 @@ mod test {
                     vec![(r - expected_r).abs() < 1e-6],
                 )
             })
+            .full("battery must be full", 0, 100, 100)
             .run()
     }
 }
