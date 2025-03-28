@@ -9,7 +9,11 @@ use std::{
     process::ExitCode,
 };
 
-#[doc = "Print the success test description to the console"]
+///
+/// Print a success message to the console
+///
+/// - `description` The test description
+///
 pub fn success_output(description: &str) -> bool {
     if let Ok((x, _)) = size() {
         let mut out: Stdout = stdout();
@@ -40,7 +44,13 @@ pub fn success_output(description: &str) -> bool {
     }
 }
 
-#[doc = "Print the success test description to the console"]
+///
+/// Close the test suite
+///
+/// - `success` the failure eq zero
+/// - `s` The sussess message
+/// - `f` The failure message
+///
 pub fn results_output(success: bool, s: &str, f: &str) -> ExitCode {
     if let Ok((x, _)) = size() {
         let mut out: Stdout = stdout();
@@ -85,6 +95,12 @@ pub fn results_output(success: bool, s: &str, f: &str) -> ExitCode {
     }
 }
 
+///
+/// Print a success ot failure message to the console
+///
+/// - `description` the test description
+/// - `test`   the test result
+///
 pub fn check(description: &str, test: bool) -> bool {
     if test {
         success_output(description)
@@ -93,7 +109,12 @@ pub fn check(description: &str, test: bool) -> bool {
     }
 }
 
-#[doc = "Print the failure test description to the console"]
+///
+///
+/// Print a failure message
+///
+/// - `description` The test description
+///
 pub fn failure_ouptut(description: &str) -> bool {
     if let Ok((x, _)) = size() {
         let mut out: Stdout = stdout();
@@ -124,11 +145,10 @@ pub fn failure_ouptut(description: &str) -> bool {
     }
 }
 
-#[doc = "Represent a testing"]
+/// Represent a testing object
 pub trait Testing {
+    /// Init a new test suite
     fn new() -> Self;
-    ///
-    /// # Ok
     ///
     /// Check if all boolean in data are equals to true
     ///
@@ -138,8 +158,6 @@ pub trait Testing {
     fn ok(&mut self, description: &str, data: Vec<bool>) -> &mut Self;
 
     ///    
-    /// # Ko
-    ///
     /// Check if all boolean in data are equals to false
     ///
     /// - `description` The test description
@@ -147,9 +165,6 @@ pub trait Testing {
     ///
     fn ko(&mut self, description: &str, data: Vec<bool>) -> &mut Self;
 
-    ///
-    ///
-    ///
-    ///
+    /// Display the results
     fn run(&mut self) -> ExitCode;
 }
