@@ -1,3 +1,4 @@
+#[doc = "Testing frameworks"]
 pub mod anima;
 pub mod build;
 pub mod config;
