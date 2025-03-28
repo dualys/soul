@@ -47,9 +47,16 @@ impl Testing for Unit {
         )
     }
 
-    fn eq<T: Eq>(&mut self, description: &str, data: Vec<T>, to: T) -> &mut Self {
+    fn eq<T: PartialEq>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
         for test in &data {
-            check(description, test.eq(&to));
+            check(description, test.eq(&expected));
+        }
+        self
+    }
+
+    fn ne<T: PartialEq>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
+        for test in &data {
+            check(description, test.ne(&expected));
         }
         self
     }
@@ -66,6 +73,8 @@ mod test {
             .ok("All must match true", vec![true, true, true])
             .ko("All must match false", vec![false, false, false])
             .eq("Linux must be running", vec![OS, OS, OS], "linux")
+            .ne("windows must not be running", vec![OS, OS, OS], "windows")
+            .ne("macos must be not running", vec![OS, OS, OS], "macos")
             .run()
     }
 }

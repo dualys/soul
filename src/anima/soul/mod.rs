@@ -172,7 +172,16 @@ pub trait Testing {
     /// - `data` The data to check
     /// - `expected` The expected value
     ///
-    fn eq<T: Eq>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self;
+    fn eq<T: PartialEq>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self;
+
+    ///
+    /// Check if data are not equals to the expected value
+    ///
+    /// - `description` The test description
+    /// - `data` The data to check
+    /// - `expected` The expected value
+    ///
+    fn ne<T: PartialEq>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self;
 
     /// Display the results
     fn run(&mut self) -> ExitCode;
