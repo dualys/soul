@@ -9,6 +9,8 @@ use std::{
     process::ExitCode,
 };
 
+use super::unit::Unit;
+
 ///
 /// Print a success message to the console
 ///
@@ -27,7 +29,7 @@ pub fn success_output(description: &str) -> bool {
                 Print(format!(
                     "{} {}{}{}{}{}\n",
                     symbol.green().bold(),
-                    description.white().bold(),
+                    description.to_lowercase().white().bold(),
                     MoveRight(x - 8 as u16 - description.len() as u16),
                     "[ ".blue().bold(),
                     status.green().bold(),
@@ -45,6 +47,45 @@ pub fn success_output(description: &str) -> bool {
 }
 
 ///
+/// Print a title to the console
+///
+/// - `title` The group title
+///
+pub fn title_output(title: &str) {
+    if let Ok((x, _)) = size() {
+        let mut out: Stdout = stdout();
+        let symbol: char = '*';
+        let status: &str = "::";
+        assert!(
+            execute!(
+                out,
+                MoveLeft(0),
+                SetForegroundColor(Color::White),
+                Print(format!(
+                    "\n{} {}{}{}{}{}\n\n",
+                    symbol.green().bold(),
+                    title.to_lowercase().white().bold(),
+                    MoveRight(x - 8 as u16 - title.len() as u16),
+                    "[ ".blue().bold(),
+                    status.cyan().bold(),
+                    " ]".blue().bold(),
+                )),
+                ResetColor,
+            )
+            .is_ok()
+        );
+    } else {
+        println!("{title}");
+    }
+}
+
+pub fn run_group(title: &str, tests: &mut Vec<Unit>) {
+    title_output(title);
+    tests.iter_mut().for_each(|t| {
+        let _ = t.run();
+    });
+}
+///
 /// Close the test suite
 ///
 /// - `success` the failure eq zero
@@ -55,11 +96,15 @@ pub fn results_output(success: bool, s: &str, f: &str) -> ExitCode {
     if let Ok((x, _)) = size() {
         let mut out: Stdout = stdout();
         let status: String = if success {
-            "ok".to_string()
+            "ok".green().to_string()
         } else {
-            "ko".to_string()
+            "ko".red().to_string()
         };
-        let symbol: char = if success { '*' } else { '!' };
+        let symbol: String = if success {
+            "*".green().to_string()
+        } else {
+            "!".red().to_string()
+        };
         let description: &str = if success { s } else { f };
         assert!(
             execute!(
@@ -68,11 +113,11 @@ pub fn results_output(success: bool, s: &str, f: &str) -> ExitCode {
                 SetForegroundColor(Color::White),
                 Print(format!(
                     "\n{} {}{}{}{}{}\n\n",
-                    symbol.green().bold(),
-                    description.white().bold(),
+                    symbol.bold(),
+                    description.to_lowercase().white().bold(),
                     MoveRight(x - 8 as u16 - description.len() as u16),
                     "[ ".blue().bold(),
-                    status.green().bold(),
+                    status.bold(),
                     " ]".blue().bold(),
                 )),
                 ResetColor,
@@ -128,7 +173,7 @@ pub fn failure_ouptut(description: &str) -> bool {
                 Print(format!(
                     "{} {}{}{}{}{}\n",
                     symbol.red(),
-                    description.white(),
+                    description.to_lowercase().white(),
                     MoveRight(x - 8 as u16 - description.len() as u16),
                     "[ ".blue(),
                     status.red(),
@@ -182,6 +227,15 @@ pub trait Testing {
     /// - `expected` The expected value
     ///
     fn ne<T: PartialEq>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self;
+
+    ///
+    ///
+    /// Map test cases in a group
+    ///
+    /// - `description` the unit description
+    /// - `it` The callback to excecute
+    ///
+    fn group(&mut self, description: &str, it: fn(&mut Self) -> &mut Self) -> &mut Self;
 
     /// Display the results
     fn run(&mut self) -> ExitCode;
