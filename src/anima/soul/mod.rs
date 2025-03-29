@@ -1,3 +1,7 @@
+pub const SUCCESS: &str = "ok";
+pub const FAILURE: &str = "ko";
+pub const DEFAULT_SLEEP_TIME: u64 = 0;
+
 use crossterm::{
     cursor::{MoveLeft, MoveRight},
     execute,
@@ -6,11 +10,13 @@ use crossterm::{
 };
 
 use std::{
+    cell::Cell,
     fmt::Debug,
     io::{Stdout, stdout},
+    ops::Add,
     process::ExitCode,
     thread::sleep,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use super::unit::Unit;
@@ -22,9 +28,9 @@ use super::unit::Unit;
 ///
 pub fn skip_output(description: &str) -> bool {
     if let Ok((x, _)) = size() {
-        let mut out = stdout();
-        let symbol = '~';
-        let status = "skip";
+        let mut out: Stdout = stdout();
+        let symbol: char = '~';
+        let status: &str = SUCCESS;
         assert!(
             execute!(
                 out,
@@ -32,12 +38,12 @@ pub fn skip_output(description: &str) -> bool {
                 SetForegroundColor(Color::White),
                 Print(format!(
                     "{} {}{}{}{}{}\n",
-                    symbol.yellow(),
-                    description.to_lowercase().dark_grey(),
-                    MoveRight(x - 8_u16 - description.len() as u16),
-                    "[ ".blue(),
-                    status.yellow(),
-                    " ]".blue()
+                    symbol.green().bold(),
+                    description.to_lowercase().white().bold(),
+                    to_right(x, description),
+                    "[ ".white().bold(),
+                    status.green().bold(),
+                    " ]".white().bold()
                 )),
                 ResetColor,
             )
@@ -58,7 +64,7 @@ pub fn skip_output(description: &str) -> bool {
 pub fn success_output(description: &str) -> bool {
     if let Ok((x, _)) = size() {
         let mut out: Stdout = stdout();
-        let status: &str = "ok";
+        let status: &str = SUCCESS;
         let symbol: char = '*';
         assert!(
             execute!(
@@ -69,10 +75,10 @@ pub fn success_output(description: &str) -> bool {
                     "{} {}{}{}{}{}\n",
                     symbol.green().bold(),
                     description.to_lowercase().white().bold(),
-                    MoveRight(x - 8_u16 - description.len() as u16),
-                    "[ ".blue().bold(),
+                    to_right(x, description),
+                    "[ ".white().bold(),
                     status.green().bold(),
-                    " ]".blue().bold(),
+                    " ]".white().bold(),
                 )),
                 ResetColor,
             )
@@ -90,11 +96,10 @@ pub fn success_output(description: &str) -> bool {
 ///
 /// - `title` The group title
 ///
-pub fn title_output(title: &str) {
+pub fn title_output(title: &str, status: &str) {
     if let Ok((x, _)) = size() {
         let mut out: Stdout = stdout();
-        let symbol: char = '*';
-        let status: &str = "::";
+        let symbol: char = '#';
         assert!(
             execute!(
                 out,
@@ -104,10 +109,10 @@ pub fn title_output(title: &str) {
                     "\n{} {}{}{}{}{}\n\n",
                     symbol.green().bold(),
                     title.to_lowercase().white().bold(),
-                    MoveRight(x - 8_u16 - title.len() as u16),
-                    "[ ".blue().bold(),
-                    status.cyan().bold(),
-                    " ]".blue().bold(),
+                    to_right(x, title),
+                    "[ ".white().bold(),
+                    status.green().bold(),
+                    " ]".white().bold(),
                 )),
                 ResetColor,
             )
@@ -118,12 +123,10 @@ pub fn title_output(title: &str) {
     }
 }
 
-pub fn run_group(title: &str, tests: &mut [Unit]) {
-    title_output(title);
-    tests.iter_mut().for_each(|t| {
-        let _ = t.run();
-    });
+fn to_right(x: u16, description: &str) -> MoveRight {
+    MoveRight(x - description.len().add(10) as u16)
 }
+
 ///
 /// Close the test suite
 ///
@@ -131,13 +134,13 @@ pub fn run_group(title: &str, tests: &mut [Unit]) {
 /// - `s` The sussess message
 /// - `f` The failure message
 ///
-pub fn results_output(success: bool, s: &str, f: &str) -> ExitCode {
+pub fn results_output(success: bool, s: &str, f: &str, stats: &mut Unit) -> ExitCode {
     if let Ok((x, _)) = size() {
         let mut out: Stdout = stdout();
         let status: String = if success {
-            "ok".green().to_string()
+            SUCCESS.green().to_string()
         } else {
-            "ko".red().to_string()
+            FAILURE.red().to_string()
         };
         let symbol: String = if success {
             "*".green().to_string()
@@ -154,27 +157,37 @@ pub fn results_output(success: bool, s: &str, f: &str) -> ExitCode {
                     "{} {}{}{}{}{}\n\n",
                     symbol.bold(),
                     description.to_lowercase().white().bold(),
-                    MoveRight(x - 8_u16 - description.len() as u16),
-                    "[ ".blue().bold(),
+                    to_right(x, description),
+                    "[ ".white().bold(),
                     status.bold(),
-                    " ]".blue().bold(),
+                    " ]".white().bold(),
                 )),
                 ResetColor,
             )
             .is_ok()
         );
-        if success {
+        return if success {
+            success_output(format!("asserts  {}", stats.get_assertions().get()).as_str());
+            success_output(format!("failure  {}", stats.get_failures().get()).as_str());
+            skip_output(format!("skipped  {}", stats.get_skipped().get()).as_str());
+
+            title_output(
+                format!("execution time {}s", stats.take().elapsed().as_secs()).as_str(),
+                SUCCESS,
+            );
             ExitCode::SUCCESS
         } else {
+            failure_ouptut(format!("asserts  {}", stats.get_assertions().get()).as_str());
+            failure_ouptut(format!("failure  {}", stats.get_failures().get()).as_str());
+            skip_output(format!("skipped  {}", stats.get_skipped().get()).as_str());
+            title_output(
+                format!("execution time {} ms", stats.take().elapsed().as_millis()).as_str(),
+                FAILURE,
+            );
             ExitCode::FAILURE
-        }
-    } else if success {
-        println!("* {s}");
-        ExitCode::SUCCESS
-    } else {
-        println!("* {f}");
-        ExitCode::FAILURE
+        };
     }
+    ExitCode::FAILURE
 }
 
 ///
@@ -183,8 +196,8 @@ pub fn results_output(success: bool, s: &str, f: &str) -> ExitCode {
 /// - `description` the test description
 /// - `test`   the test result
 ///
-pub fn check(description: &str, test: bool) -> bool {
-    sleep(Duration::from_millis(250));
+pub fn check(description: &str, test: bool, t: u64) -> bool {
+    sleep(Duration::from_millis(t));
     if test {
         success_output(description)
     } else {
@@ -201,7 +214,7 @@ pub fn check(description: &str, test: bool) -> bool {
 pub fn failure_ouptut(description: &str) -> bool {
     if let Ok((x, _)) = size() {
         let mut out: Stdout = stdout();
-        let status: &str = "ko";
+        let status: &str = FAILURE;
         let symbol: char = '!';
         assert!(
             execute!(
@@ -212,10 +225,10 @@ pub fn failure_ouptut(description: &str) -> bool {
                     "{} {}{}{}{}{}\n",
                     symbol.red(),
                     description.to_lowercase().white(),
-                    MoveRight(x - 8_u16 - description.len() as u16),
-                    "[ ".blue(),
+                    to_right(x, description),
+                    "[ ".white(),
                     status.red(),
-                    " ]".blue()
+                    " ]".white(),
                 )),
                 ResetColor,
             )
@@ -382,6 +395,7 @@ pub trait Testing {
     ///
     fn timed<F: FnOnce() -> bool>(&mut self, description: &str, f: F) -> &mut Self;
 
+    fn take(&mut self) -> Instant;
     ///
     /// Define a sub-group of tests
     ///
@@ -389,6 +403,9 @@ pub trait Testing {
     /// - `it` The callback that runs the group
     ///
     fn subgroup(&mut self, description: &str, it: fn(&mut Self) -> &mut Self) -> &mut Self;
+    fn get_assertions(&mut self) -> Cell<usize>;
+    fn get_failures(&mut self) -> Cell<usize>;
+    fn get_skipped(&mut self) -> Cell<usize>;
 
     ///
     /// - `description` The test description
@@ -402,6 +419,8 @@ pub trait Testing {
     /// - `expected` Expected number of elements
     ///
     fn le<T: PartialOrd>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self;
+
+    fn set_sleep_time(&mut self, time: u64) -> &mut Self;
 
     /// Display the results
     fn run(&mut self) -> ExitCode;

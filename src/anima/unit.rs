@@ -1,25 +1,34 @@
-use super::soul::{failure_ouptut, results_output, skip_output, success_output, title_output};
+use super::soul::{
+    DEFAULT_SLEEP_TIME, SUCCESS, failure_ouptut, results_output, skip_output, success_output,
+    title_output,
+};
 use crate::anima::soul::{Testing, check};
 use std::fmt::Debug;
 use std::{cell::Cell, ops::Add, process::ExitCode, time::Instant};
 pub struct Unit {
+    sleep_time: u64,
     started_at: Instant,
     asserts: Cell<usize>,
     failures: Cell<usize>,
+    skipped: Cell<usize>,
 }
 
 impl Testing for Unit {
     fn new() -> Self {
+        let i: Instant = Instant::now();
+        title_output("starting tests", SUCCESS);
         Self {
-            started_at: Instant::now(),
+            started_at: i,
             asserts: Cell::new(0),
             failures: Cell::new(0),
+            skipped: Cell::new(0),
+            sleep_time: DEFAULT_SLEEP_TIME,
         }
     }
 
     fn ok(&mut self, description: &str, data: Vec<bool>) -> &mut Self {
         for t in &data {
-            if check(description, t.clone().eq(&true)).eq(&true) {
+            if check(description, t.clone().eq(&true), self.sleep_time.clone()).eq(&true) {
                 self.asserts.set(self.asserts.get() + 1);
             } else {
                 self.failures.set(self.failures.get() + 1);
@@ -30,7 +39,7 @@ impl Testing for Unit {
 
     fn ko(&mut self, description: &str, data: Vec<bool>) -> &mut Self {
         for t in &data {
-            if check(description, t.clone().eq(&false)).eq(&true) {
+            if check(description, t.clone().eq(&false), self.sleep_time.clone()).eq(&true) {
                 self.asserts.set(self.asserts.get() + 1);
             } else {
                 self.failures.set(self.failures.get() + 1);
@@ -41,20 +50,20 @@ impl Testing for Unit {
 
     fn eq<T: PartialEq>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
         for test in &data {
-            check(description, test.eq(&expected));
+            check(description, test.eq(&expected), self.sleep_time.clone());
         }
         self
     }
 
     fn ne<T: PartialEq>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
         for test in &data {
-            check(description, test.ne(&expected));
+            check(description, test.ne(&expected), self.sleep_time.clone());
         }
         self
     }
 
     fn group(&mut self, description: &str, it: fn(&mut Self) -> &mut Self) -> &mut Self {
-        title_output(description);
+        title_output(description, SUCCESS);
         it(self)
     }
 
@@ -72,27 +81,27 @@ impl Testing for Unit {
 
     fn gt<T: PartialOrd>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
         for test in &data {
-            check(description, test.gt(&expected));
+            check(description, test.gt(&expected), self.sleep_time.clone());
         }
         self
     }
 
     fn lt<T: PartialOrd>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
         for test in &data {
-            check(description, test.lt(&expected));
+            check(description, test.lt(&expected), self.sleep_time.clone());
         }
         self
     }
 
     fn ge<T: PartialOrd>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
         for test in &data {
-            check(description, test.ge(&expected));
+            check(description, test.ge(&expected), self.sleep_time.clone());
         }
         self
     }
 
     fn empty(&mut self, description: &str, data: String) -> &mut Self {
-        check(description, data.is_empty());
+        check(description, data.is_empty(), self.sleep_time.clone());
         self
     }
 
@@ -103,29 +112,41 @@ impl Testing for Unit {
         max: T,
         current: T,
     ) -> &mut Self {
-        check(description, current > min && current < max);
+        check(
+            description,
+            current > min && current < max,
+            self.sleep_time.clone(),
+        );
         self
     }
 
     fn le<T: PartialOrd>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
         for test in &data {
-            check(description, test.le(&expected));
+            check(description, test.le(&expected), self.sleep_time.clone());
         }
         self
     }
 
     fn run(&mut self) -> ExitCode {
-        title_output(format!("Tests take {} s", self.started_at.elapsed().as_secs()).as_str());
+        title_output(
+            format!("Tests take {} s", self.started_at.elapsed().as_secs()).as_str(),
+            SUCCESS,
+        );
         results_output(
             self.failures.get().eq(&0),
             "No errors has been fouded",
             "Errors has been founded",
+            self,
         )
     }
 
     fn full(&mut self, description: &str, min: usize, max: usize, current: usize) -> &mut Self {
         if max.ne(&0) {
-            check(description, min.add(current).div_euclid(max).eq(&1));
+            check(
+                description,
+                min.add(current).div_euclid(max).eq(&1),
+                self.sleep_time.clone(),
+            );
         }
         self
     }
@@ -149,18 +170,39 @@ impl Testing for Unit {
         let i: Instant = Instant::now();
         let ok: bool = f();
         let duration: u128 = i.elapsed().as_millis();
-        check(description, ok);
+        check(description, ok, self.sleep_time.clone());
         success_output(format!("completed in {} ms", duration).as_str());
         self
     }
 
     fn subgroup(&mut self, description: &str, it: fn(&mut Self) -> &mut Self) -> &mut Self {
-        title_output(description);
+        title_output(description, "sub");
         it(self)
     }
 
     fn skip(&mut self, description: &str) -> &mut Self {
+        self.skipped.set(self.skipped.get() + 1);
         skip_output(description);
+        self
+    }
+    fn take(&mut self) -> Instant {
+        self.started_at
+    }
+
+    fn get_assertions(&mut self) -> Cell<usize> {
+        self.asserts.clone()
+    }
+
+    fn get_failures(&mut self) -> Cell<usize> {
+        self.failures.clone()
+    }
+
+    fn get_skipped(&mut self) -> Cell<usize> {
+        self.skipped.clone()
+    }
+
+    fn set_sleep_time(&mut self, time: u64) -> &mut Self {
+        self.sleep_time = time;
         self
     }
 }
