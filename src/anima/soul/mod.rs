@@ -4,12 +4,51 @@ use crossterm::{
     style::{Color, Print, ResetColor, SetForegroundColor, Stylize},
     terminal::size,
 };
+
 use std::{
+    fmt::Debug,
     io::{Stdout, stdout},
     process::ExitCode,
+    thread::sleep,
+    time::Duration,
 };
 
 use super::unit::Unit;
+
+///
+/// Print a skipped test message to the console
+///
+/// - `description` The test description
+///
+pub fn skip_output(description: &str) -> bool {
+    if let Ok((x, _)) = size() {
+        let mut out = stdout();
+        let symbol = '~';
+        let status = "skip";
+        assert!(
+            execute!(
+                out,
+                MoveLeft(0),
+                SetForegroundColor(Color::White),
+                Print(format!(
+                    "{} {}{}{}{}{}\n",
+                    symbol.yellow(),
+                    description.to_lowercase().dark_grey(),
+                    MoveRight(x - 8_u16 - description.len() as u16),
+                    "[ ".blue(),
+                    status.yellow(),
+                    " ]".blue()
+                )),
+                ResetColor,
+            )
+            .is_ok()
+        );
+        true
+    } else {
+        println!("~ {description}");
+        true
+    }
+}
 
 ///
 /// Print a success message to the console
@@ -112,7 +151,7 @@ pub fn results_output(success: bool, s: &str, f: &str) -> ExitCode {
                 MoveLeft(0),
                 SetForegroundColor(Color::White),
                 Print(format!(
-                    "\n{} {}{}{}{}{}\n\n",
+                    "{} {}{}{}{}{}\n\n",
                     symbol.bold(),
                     description.to_lowercase().white().bold(),
                     MoveRight(x - 8_u16 - description.len() as u16),
@@ -145,6 +184,7 @@ pub fn results_output(success: bool, s: &str, f: &str) -> ExitCode {
 /// - `test`   the test result
 ///
 pub fn check(description: &str, test: bool) -> bool {
+    sleep(Duration::from_millis(250));
     if test {
         success_output(description)
     } else {
@@ -323,6 +363,38 @@ pub trait Testing {
     ) -> &mut Self;
 
     ///
+    /// Check if a function returns an error
+    ///
+    /// - `description` The test description
+    /// - `f` The function that should return a Result::Err
+    ///
+    fn throws<E: Debug, F: FnOnce() -> Result<(), E>>(
+        &mut self,
+        description: &str,
+        f: F,
+    ) -> &mut Self;
+
+    ///
+    /// Execute a test and display its duration
+    ///
+    /// - `description` The test description
+    /// - `f` The function to execute, must return a boolean indicating success
+    ///
+    fn timed<F: FnOnce() -> bool>(&mut self, description: &str, f: F) -> &mut Self;
+
+    ///
+    /// Define a sub-group of tests
+    ///
+    /// - `description` The group title
+    /// - `it` The callback that runs the group
+    ///
+    fn subgroup(&mut self, description: &str, it: fn(&mut Self) -> &mut Self) -> &mut Self;
+
+    ///
+    /// - `description` The test description
+    ///
+    fn skip(&mut self, description: &str) -> &mut Self;
+    ///
     /// Check if length of the data is lower equal than to expected
     ///
     /// - `description` The test description
@@ -330,6 +402,7 @@ pub trait Testing {
     /// - `expected` Expected number of elements
     ///
     fn le<T: PartialOrd>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self;
+
     /// Display the results
     fn run(&mut self) -> ExitCode;
 }

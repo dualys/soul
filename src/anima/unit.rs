@@ -1,9 +1,9 @@
+use super::soul::{failure_ouptut, results_output, skip_output, success_output, title_output};
 use crate::anima::soul::{Testing, check};
-use std::{cell::Cell, ops::Add, process::ExitCode};
-
-use super::soul::{results_output, title_output};
-
+use std::fmt::Debug;
+use std::{cell::Cell, ops::Add, process::ExitCode, time::Instant};
 pub struct Unit {
+    started_at: Instant,
     asserts: Cell<usize>,
     failures: Cell<usize>,
 }
@@ -11,6 +11,7 @@ pub struct Unit {
 impl Testing for Unit {
     fn new() -> Self {
         Self {
+            started_at: Instant::now(),
             asserts: Cell::new(0),
             failures: Cell::new(0),
         }
@@ -114,6 +115,7 @@ impl Testing for Unit {
     }
 
     fn run(&mut self) -> ExitCode {
+        title_output(format!("Tests take {} s", self.started_at.elapsed().as_secs()).as_str());
         results_output(
             self.failures.get().eq(&0),
             "No errors has been fouded",
@@ -125,6 +127,40 @@ impl Testing for Unit {
         if max.ne(&0) {
             check(description, min.add(current).div_euclid(max).eq(&1));
         }
+        self
+    }
+
+    fn throws<E: Debug, F: FnOnce() -> Result<(), E>>(
+        &mut self,
+        description: &str,
+        f: F,
+    ) -> &mut Self {
+        match f() {
+            Ok(_) => {
+                failure_ouptut(format!("{description} (no error thrown)").as_str());
+            }
+            Err(e) => {
+                success_output(format!("{description} (threw: {:?})", e).as_str());
+            }
+        }
+        self
+    }
+    fn timed<F: FnOnce() -> bool>(&mut self, description: &str, f: F) -> &mut Self {
+        let i: Instant = Instant::now();
+        let ok: bool = f();
+        let duration: u128 = i.elapsed().as_millis();
+        check(description, ok);
+        success_output(format!("completed in {} ms", duration).as_str());
+        self
+    }
+
+    fn subgroup(&mut self, description: &str, it: fn(&mut Self) -> &mut Self) -> &mut Self {
+        title_output(description);
+        it(self)
+    }
+
+    fn skip(&mut self, description: &str) -> &mut Self {
+        skip_output(description);
         self
     }
 }
