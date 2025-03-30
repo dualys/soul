@@ -190,29 +190,6 @@ kill_ungit() {
   fi
 }
 
-status() {
-  ok_msg "État des services"
-  sleep 0.5
-  clear
-  echo
-  echo
-
-  for name in "${!tools[@]}"; do
-    local port="${tools[$name]}"
-    if [[ "$name" == "ungit" ]]; then
-      pgrep -f "ungit --port $port" >/dev/null && ok_msg_status "$name" "$port" || ko_msg_status "$name" "$port"
-    else
-      if tmux has-session -t "$name" 2>/dev/null || screen -list | grep -q "\.${name}[[:space:]]"; then
-        ok_msg_status "$name" "$port"
-      else
-        ko_msg_status "$name" "$port"
-      fi
-    fi
-  done
-  echo
-  echo
-}
-
 get_cargo_command() {
   case "$1" in
   lazygit) echo 'lazygit' ;;
@@ -229,6 +206,54 @@ get_cargo_command() {
   flamegraph) echo 'cargo-watch -- cargo flamegraph' ;;
   *) echo '' ;;
   esac
+}
+
+status() {
+  local green=$(tput setaf 2)
+  local red=$(tput setaf 1)
+  local reset=$(tput sgr0)
+
+  echo
+  ok_msg "Etats des services"
+  echo
+
+  # En-tête du tableau
+  printf "╭────────────┬─────────┬────────────┬──────────────────────────────────────────┬──────────╮\n"
+  printf "│ %-10s │ %-8s│ %-10s │ %-40s │ %-8s │\n" "Service" "Status" "Backend" "URL" "Uptime"
+  printf "├────────────┼─────────┼────────────┼──────────────────────────────────────────┼──────────┤\n"
+
+  for name in "${!tools[@]}"; do
+    local port="${tools[$name]}"
+    local url="http://localhost:$port"
+    local backend="–"
+    local status_text="${red}stopped${reset}"
+    local uptime="–"
+
+    if tmux has-session -t "$name" 2>/dev/null; then
+      backend="tmux"
+      local pid=$(pgrep -f "tmux.*new.*-s $name")
+      [[ -n "$pid" ]] && uptime=$(ps -o etime= -p "$pid" | xargs)
+      status_text="${green}started${reset}"
+    elif screen -list | grep -q "\.${name}[[:space:]]"; then
+      backend="screen"
+      local pid=$(pgrep -f "SCREEN -S $name")
+      [[ -n "$pid" ]] && uptime=$(ps -o etime= -p "$pid" | xargs)
+      status_text="${green}started${reset}"
+    elif [[ "$name" == "ungit" ]]; then
+      if pgrep -f "ungit --port $port" >/dev/null; then
+        backend="ungit"
+        local pid=$(pgrep -f "ungit --port $port")
+        [[ -n "$pid" ]] && uptime=$(ps -o etime= -p "$pid" | xargs)
+        status_text="${green}started${reset}"
+      fi
+    fi
+
+    printf "│ %-10s │ %-8s │ %-10s │ %-40s │ %-8s │\n" \
+      "$name" "$status_text" "$backend" "$url" "${uptime:--}"
+  done
+  # Pied du tableau
+  printf "╰────────────┴─────────┴────────────┴──────────────────────────────────────────┴──────────╯\n"
+  echo
 }
 
 start_group() {
