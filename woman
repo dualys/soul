@@ -253,6 +253,8 @@ start_group() {
 restart_group() {
   stop_sessions
   start_group "$@"
+  echo
+  echo
 }
 
 # === Définition des groupes ===
