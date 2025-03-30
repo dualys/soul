@@ -75,7 +75,7 @@ require_bin() {
 echo
 echo
 MISSING=0
-for bin in cargo-hack cargo-udeps ttyd cargo cargo-watch cargo-audit cargo-deny lazygit broot ranger git; do
+for bin in cargo-hack cargo-udeps ttyd cargo cargo-watch cargo-audit cargo-deny lazygit broot ranger git code; do
   require_bin "$bin"
 done
 
@@ -271,6 +271,7 @@ while [[ "$1" != "" ]]; do
   --screen) SESSION_BACKEND="screen" ;;
   --broot) EDIT="broot" ;;
   --ranger) EDIT="ranger" ;;
+  --code) EDIT="code" ;;
   *) ARGS+=("$1") ;;
   esac
   shift
@@ -285,6 +286,9 @@ broot)
   ;;
 ranger)
   ok_msg "ranger ok"
+  ;;
+code)
+  ok_msg "code ok"
   ;;
 "" | *)
   ok_msg "editor no set"
