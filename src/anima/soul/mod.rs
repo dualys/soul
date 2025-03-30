@@ -124,7 +124,7 @@ pub fn title_output(title: &str, status: &str) {
 }
 
 fn to_right(x: u16, description: &str) -> MoveRight {
-    MoveRight(x - description.len().add(10) as u16)
+    MoveRight(x - description.len().add(8) as u16)
 }
 
 ///
@@ -411,6 +411,7 @@ pub trait Testing {
     /// - `description` The test description
     ///
     fn skip(&mut self, description: &str) -> &mut Self;
+
     ///
     /// Check if length of the data is lower equal than to expected
     ///
