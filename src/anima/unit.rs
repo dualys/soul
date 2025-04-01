@@ -1,3 +1,5 @@
+#![allow(clippy::multiple_crate_versions)]
+
 use super::soul::{
     DEFAULT_SLEEP_TIME, SUCCESS, failure_ouptut, results_output, skip_output, success_output,
     title_output,
@@ -28,7 +30,7 @@ impl Testing for Unit {
 
     fn ok(&mut self, description: &str, data: Vec<bool>) -> &mut Self {
         for t in &data {
-            if check(description, t.clone().eq(&true), self.sleep_time.clone()).eq(&true) {
+            if check(description, t.clone().eq(&true), self.sleep_time).eq(&true) {
                 self.asserts.set(self.asserts.get() + 1);
             } else {
                 self.failures.set(self.failures.get() + 1);
@@ -39,7 +41,7 @@ impl Testing for Unit {
 
     fn ko(&mut self, description: &str, data: Vec<bool>) -> &mut Self {
         for t in &data {
-            if check(description, t.clone().eq(&false), self.sleep_time.clone()).eq(&true) {
+            if check(description, t.clone().eq(&false), self.sleep_time).eq(&true) {
                 self.asserts.set(self.asserts.get() + 1);
             } else {
                 self.failures.set(self.failures.get() + 1);
@@ -50,14 +52,14 @@ impl Testing for Unit {
 
     fn eq<T: PartialEq>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
         for test in &data {
-            check(description, test.eq(&expected), self.sleep_time.clone());
+            check(description, test.eq(&expected), self.sleep_time);
         }
         self
     }
 
     fn ne<T: PartialEq>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
         for test in &data {
-            check(description, test.ne(&expected), self.sleep_time.clone());
+            check(description, test.ne(&expected), self.sleep_time);
         }
         self
     }
@@ -81,27 +83,27 @@ impl Testing for Unit {
 
     fn gt<T: PartialOrd>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
         for test in &data {
-            check(description, test.gt(&expected), self.sleep_time.clone());
+            check(description, test.gt(&expected), self.sleep_time);
         }
         self
     }
 
     fn lt<T: PartialOrd>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
         for test in &data {
-            check(description, test.lt(&expected), self.sleep_time.clone());
+            check(description, test.lt(&expected), self.sleep_time);
         }
         self
     }
 
     fn ge<T: PartialOrd>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
         for test in &data {
-            check(description, test.ge(&expected), self.sleep_time.clone());
+            check(description, test.ge(&expected), self.sleep_time);
         }
         self
     }
 
     fn empty(&mut self, description: &str, data: String) -> &mut Self {
-        check(description, data.is_empty(), self.sleep_time.clone());
+        check(description, data.is_empty(), self.sleep_time);
         self
     }
 
@@ -112,17 +114,13 @@ impl Testing for Unit {
         max: T,
         current: T,
     ) -> &mut Self {
-        check(
-            description,
-            current > min && current < max,
-            self.sleep_time.clone(),
-        );
+        check(description, current > min && current < max, self.sleep_time);
         self
     }
 
     fn le<T: PartialOrd>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self {
         for test in &data {
-            check(description, test.le(&expected), self.sleep_time.clone());
+            check(description, test.le(&expected), self.sleep_time);
         }
         self
     }
@@ -145,7 +143,7 @@ impl Testing for Unit {
             check(
                 description,
                 min.add(current).div_euclid(max).eq(&1),
-                self.sleep_time.clone(),
+                self.sleep_time,
             );
         }
         self
@@ -170,7 +168,7 @@ impl Testing for Unit {
         let i: Instant = Instant::now();
         let ok: bool = f();
         let duration: u128 = i.elapsed().as_millis();
-        check(description, ok, self.sleep_time.clone());
+        check(description, ok, self.sleep_time);
         success_output(format!("completed in {} ms", duration).as_str());
         self
     }
@@ -205,14 +203,58 @@ impl Testing for Unit {
         self.sleep_time = time;
         self
     }
+    fn always<T: PartialEq>(
+        &mut self,
+        description: &str,
+        iteration: usize,
+        expected: T,
+        c: fn() -> T,
+    ) -> &mut Self {
+        for _ in 0..iteration {
+            assert!(check(description, c().eq(&expected), self.sleep_time));
+        }
+        self
+    }
+
+    fn confirm_contains_in<T: PartialEq>(
+        &mut self,
+        description: &str,
+        iteration: usize,
+        expected: Vec<T>,
+        c: fn() -> T,
+    ) -> &mut Self {
+        for _ in 0..iteration {
+            assert!(check(
+                description,
+                expected.contains(&c()).eq(&true),
+                self.sleep_time
+            ));
+        }
+        self
+    }
+
+    fn confirm_not_contains_in<T: PartialEq>(
+        &mut self,
+        description: &str,
+        iteration: usize,
+        expected: Vec<T>,
+        c: fn() -> T,
+    ) -> &mut Self {
+        for _ in 0..iteration {
+            assert!(check(
+                description,
+                expected.contains(&c()).eq(&false),
+                self.sleep_time
+            ));
+        }
+        self
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use std::{env::consts::OS, process::ExitCode};
-
     use crate::anima::{soul::Testing, unit::Unit};
-
+    use std::{env::consts::OS, process::ExitCode};
     fn is_thales_verified(ab: f64, ad: f64, ac: f64, ae: f64) -> bool {
         (ab / ad - ac / ae).abs() < f64::EPSILON
     }
@@ -225,10 +267,15 @@ mod test {
         let area = (s * (s - a) * (s - b) * (s - c)).sqrt();
         area / s
     }
-
     #[test]
     pub fn success() -> ExitCode {
         Unit::new()
+            .group("test loops", |u| {
+                u.always("description", 20, true, || 2 == 2)
+                    .confirm_contains_in("description", 20, vec![true], || 2 == 2)
+                    .confirm_not_contains_in("description", 20, vec![false], || 2 == 2)
+                    .always("description", 20, true, || 2 == 2)
+            })
             .group("Only linux must be fouded", |u| {
                 u.ok("Os must be linux", vec![OS == "linux"])
                     .eq("Os const must be equal to linux", vec![OS], "linux")

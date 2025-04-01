@@ -8,6 +8,7 @@ use crossterm::{
     style::{Color, Print, ResetColor, SetForegroundColor, Stylize},
     terminal::size,
 };
+use fake::{Dummy, Fake, Faker};
 
 use std::{
     cell::Cell,
@@ -53,6 +54,65 @@ pub fn skip_output(description: &str) -> bool {
     } else {
         println!("~ {description}");
         true
+    }
+}
+
+/// Vérifie que la fonction est déterministe sur `n` itérations avec un type généré via Faker.
+pub fn assert_deterministic<T, R, F>(n: usize, mut func: F) -> bool
+where
+    T: Dummy<Faker> + Clone + Debug,
+    R: Eq + Debug,
+    F: FnMut(T) -> R,
+{
+    for _ in 0..n {
+        let input: T = Faker.fake();
+        let out1 = func(input.clone());
+        let out2 = func(input.clone());
+        assert_eq!(out1, out2, "Non-déterminisme pour l'entrée : {:?}", input);
+    }
+    true
+}
+
+/// Vérifie que la fonction est sensible à une mutation de `T`.
+pub fn assert_sensitive<T, R, F, M>(n: usize, mut func: F, mut mutate: M)
+where
+    T: Dummy<Faker> + Clone + Debug,
+    R: Eq + Debug,
+    F: FnMut(T) -> R,
+    M: FnMut(&mut T),
+{
+    for _ in 0..n {
+        let mut input: T = Faker.fake();
+        let original = input.clone();
+        let hash1 = func(original.clone());
+
+        mutate(&mut input);
+        let hash2 = func(input.clone());
+
+        assert_ne!(
+            hash1, hash2,
+            "Pas de changement de sortie après mutation : {:?} -> {:?}",
+            original, input
+        );
+    }
+}
+
+/// Vérifie que la fonction est invariante sous transformation "équivalente".
+pub fn assert_invariant<T, R, F, E>(n: usize, mut func: F, mut equiv: E)
+where
+    T: Dummy<Faker> + Clone + Debug,
+    R: Eq + Debug,
+    F: FnMut(T) -> R,
+    E: FnMut(T) -> T,
+{
+    for _ in 0..n {
+        let input: T = Faker.fake();
+        let transformed = equiv(input.clone());
+
+        let h1 = func(input);
+        let h2 = func(transformed);
+
+        assert_eq!(h1, h2, "La transformation équivalente a changé la sortie");
     }
 }
 
@@ -396,6 +456,7 @@ pub trait Testing {
     fn timed<F: FnOnce() -> bool>(&mut self, description: &str, f: F) -> &mut Self;
 
     fn take(&mut self) -> Instant;
+
     ///
     /// Define a sub-group of tests
     ///
@@ -421,8 +482,62 @@ pub trait Testing {
     ///
     fn le<T: PartialOrd>(&mut self, description: &str, data: Vec<T>, expected: T) -> &mut Self;
 
+    ///
+    /// set sleep time
+    ///
+    /// `time` the time to sleep in s
+    ///
     fn set_sleep_time(&mut self, time: u64) -> &mut Self;
 
     /// Display the results
     fn run(&mut self) -> ExitCode;
+
+    ///
+    /// verify if the callback return alawys the same value in x iterations
+    ///
+    /// - `description` the test description
+    /// - `interation` iteration number
+    /// - `f` faker instance
+    /// - `expected` expected result
+    /// - `c`the callback to execute
+    ///
+    fn always<T: PartialEq>(
+        &mut self,
+        description: &str,
+        iteration: usize,
+        expected: T,
+        c: fn() -> T,
+    ) -> &mut Self;
+
+    ///
+    /// verify if the callback return multiple expected values
+    ///
+    /// - `description` the test description
+    /// - `interation` iteration number
+    /// - `expected` expected result
+    /// - `c` the callback to execute
+    ///
+    fn confirm_contains_in<T: PartialEq>(
+        &mut self,
+        description: &str,
+        iteration: usize,
+        expected: Vec<T>,
+        c: fn() -> T,
+    ) -> &mut Self;
+
+    ///
+    /// verify if the callback not return specific values
+    ///
+    /// - `description` the test description
+    /// - `interation` iteration number
+    /// - `data` expected result
+    /// - `c` the callback to execute
+    ///
+    fn confirm_not_contains_in<T: PartialEq>(
+        &mut self,
+        description: &str,
+        iteration: usize,
+        expected: Vec<T>,
+        c: fn() -> T,
+    ) -> &mut Self;
 }

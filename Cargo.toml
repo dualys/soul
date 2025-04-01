@@ -1,14 +1,18 @@
 [package]
 name = "soul"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "The core of dualys"
-keywords = ["dualys", "core"]
-categories = ["development-tools"]
 readme = "README.md"
-license =  "AGPL-3.0"
 repository = "https://github.com/dualys/soul.git"
+license = "AGPL-3.0"
+keywords = ["core", "dualys"]
+categories = ["development-tools"]
+
 [dependencies]
 async-trait = "0.1.88"
 crossterm = "0.28.1"
+fake = { version = "4.2.0", features = ["always-true-rng", "base64", "bigdecimal", "bson", "bson_oid", "chrono", "chrono-tz", "cli", "derive", "email_address", "geo", "geo-types", "glam", "indexmap", "maybe-non-empty-collections", "semver", "serde_json", "time", "ulid", "url", "uuid", "zerocopy"] }
+hash = "0.3.0"
+rand = "0.9.0"
 tokio = { version = "1.44.1", features = ["full"] }
