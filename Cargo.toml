@@ -2,7 +2,12 @@
 name = "soul"
 version = "0.1.0"
 edition = "2024"
-
+description = "The core of dualys"
+keywords = ["dualys", "core"]
+categories = ["development-tools"]
+readme = "README.md"
+license =  "AGPL-3.0"
+repository = "https://github.com/dualys/soul.git"
 [dependencies]
 async-trait = "0.1.88"
 crossterm = "0.28.1"
