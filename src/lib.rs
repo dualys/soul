@@ -3,3 +3,5 @@ pub mod anima;
 
 #[doc = "All utilities"]
 pub mod utils;
+
+pub mod soul;
